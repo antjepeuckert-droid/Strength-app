@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Krafttraining" />
+  <meta name="theme-color" content="#0F1117" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Krafttraining OZ</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #0F1117; color: #E8EAF0; font-family: -apple-system, 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+    #root { min-height: 100vh; padding-bottom: env(safe-area-inset-bottom); }
+    input, select, button { font-family: inherit; -webkit-appearance: none; }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+const C = {
+  bg: "#0F1117", surface: "#1A1D27", card: "#22263A", border: "#2E3350",
+  accent: "#E53E3E", accentMuted: "#7B1E1E", accentGlow: "rgba(229,62,62,0.15)",
+  gold: "#F6C90E", goldGlow: "rgba(246,201,14,0.15)", green: "#38D996",
+  muted: "#6B7280", text: "#E8EAF0", textSub: "#9CA3AF",
+};
+
+const LIBRARY = {
+  "Brust": [
+    { id: "b1", name: "Bankdrücken", equipment: ["Langhantel","Kurzhantel","Smith Machine"], type: "Gewicht", superset: true },
+    { id: "b2", name: "Schrägbankdrücken", equipment: ["Langhantel","Kurzhantel"], type: "Gewicht", superset: true },
+    { id: "b3", name: "Kabelfliegende", equipment: ["Kabelzug"], type: "Gewicht", superset: true },
+    { id: "b4", name: "Liegestütze", equipment: ["Körpergewicht"], type: "Körpergewicht", superset: true },
+    { id: "b5", name: "Dips", equipment: ["Körpergewicht","Zusatzgewicht"], type: "Körpergewicht", superset: true },
+  ],
+  "Rücken": [
+    { id: "r1", name: "Klimmzüge", equipment: ["Körpergewicht","Zusatzgewicht"], type: "Körpergewicht", superset: true },
+    { id: "r2", name: "Rudern mit Langhantel", equipment: ["Langhantel"], type: "Gewicht", superset: false },
+    { id: "r3", name: "Latziehen", equipment: ["Kabelzug","Maschine"], type: "Gewicht", superset: true },
+    { id: "r4", name: "Seated Row", equipment: ["Kabelzug","Maschine"], type: "Gewicht", superset: true },
+    { id: "r5", name: "Face Pull", equipment: ["Kabelzug","Band"], type: "Gewicht", superset: true },
+    { id: "r6", name: "TRX-Row", equipment: ["Sling/TRX"], type: "Körpergewicht", superset: true },
+  ],
+  "Schulter": [
+    { id: "s1", name: "Schulterdrücken", equipment: ["Langhantel","Kurzhantel","Maschine"], type: "Gewicht", superset: false },
+    { id: "s2", name: "Seitheben", equipment: ["Kurzhantel","Kabelzug","Band"], type: "Gewicht", superset: true },
+    { id: "s3", name: "Frontheben", equipment: ["Kurzhantel","Langhantel","Band"], type: "Gewicht", superset: true },
+    { id: "s4", name: "Facepull", equipment: ["Kabelzug","Band"], type: "Gewicht", superset: true },
+    { id: "s5", name: "Band Pull-Apart", equipment: ["Band"], type: "Band", superset: true },
+  ],
+  "Bizeps / Trizeps": [
+    { id: "bi1", name: "Bizepscurl", equipment: ["Kurzhantel","Langhantel","Kabelzug","Band"], type: "Gewicht", superset: true },
+    { id: "bi2", name: "Hammer Curl", equipment: ["Kurzhantel"], type: "Gewicht", superset: true },
+    { id: "tri1", name: "Trizepsdrücken", equipment: ["Kabelzug","Kurzhantel","Band"], type: "Gewicht", superset: true },
+    { id: "tri2", name: "Skull Crusher", equipment: ["Langhantel","Kurzhantel"], type: "Gewicht", superset: false },
+    { id: "tri3", name: "Close-Grip Bankdrücken", equipment: ["Langhantel","Smith Machine"], type: "Gewicht", superset: false },
+  ],
+  "Beine": [
+    { id: "l1", name: "Kniebeuge", equipment: ["Langhantel","Smith Machine","Körpergewicht","Kettlebell"], type: "Gewicht", superset: false },
+    { id: "l2", name: "Beinpresse", equipment: ["Maschine"], type: "Gewicht", superset: false },
+    { id: "l3", name: "Romanian Deadlift", equipment: ["Langhantel","Kurzhantel","Kettlebell"], type: "Gewicht", superset: false },
+    { id: "l4", name: "Beinstrecker", equipment: ["Maschine"], type: "Gewicht", superset: true },
+    { id: "l5", name: "Beinbeuger", equipment: ["Maschine"], type: "Gewicht", superset: true },
+    { id: "l6", name: "Ausfallschritte", equipment: ["Körpergewicht","Kurzhantel","Langhantel","Kettlebell"], type: "Gewicht", superset: false },
+    { id: "l7", name: "Hip Thrust", equipment: ["Langhantel","Maschine","Kettlebell"], type: "Gewicht", superset: false },
+    { id: "l8", name: "Wadenheben", equipment: ["Maschine","Kurzhantel","Körpergewicht","Kettlebell"], type: "Gewicht", superset: true },
+  ],
+  "Core / Rumpf": [
+    { id: "c1", name: "Plank", equipment: ["Körpergewicht"], type: "Körpergewicht", superset: true },
+    { id: "c2", name: "Crunch", equipment: ["Körpergewicht","Kabelzug"], type: "Körpergewicht", superset: true },
+    { id: "c3", name: "Russian Twist", equipment: ["Körpergewicht","Medizinball","Kurzhantel","Kettlebell"], type: "Körpergewicht", superset: true },
+    { id: "c4", name: "Medizinball-Slam", equipment: ["Medizinball"], type: "Medizinball", superset: false },
+    { id: "c5", name: "Hanging Leg Raise", equipment: ["Körpergewicht"], type: "Körpergewicht", superset: true },
+    { id: "c6", name: "TRX-Rollout", equipment: ["Sling/TRX"], type: "Körpergewicht", superset: true },
+    { id: "c7", name: "Pallof Press", equipment: ["Kabelzug","Band"], type: "Gewicht", superset: true },
+  ],
+  "Olympisch / Athletik": [
+    { id: "o1", name: "Kreuzheben", equipment: ["Langhantel","Kettlebell"], type: "Gewicht", superset: false },
+    { id: "o2", name: "Power Clean", equipment: ["Langhantel","Kettlebell"], type: "Gewicht", superset: false },
+    { id: "o3", name: "Kettlebell Swing", equipment: ["Kettlebell"], type: "Gewicht", superset: false },
+    { id: "o4", name: "Medizinball-Wurf", equipment: ["Medizinball"], type: "Medizinball", superset: false },
+    { id: "o5", name: "Box Jump", equipment: ["Körpergewicht"], type: "Körpergewicht", superset: false },
+  ],
+  "Kettlebell": [
+    { id: "kb1", name: "KB Swing (beidarmig)", equipment: ["Kettlebell"], type: "Kettlebell", superset: false },
+    { id: "kb2", name: "KB Swing (einarmig)", equipment: ["Kettlebell"], type: "Kettlebell", superset: true },
+    { id: "kb3", name: "KB Turkish Get-Up", equipment: ["Kettlebell"], type: "Kettlebell", superset: false },
+    { id: "kb4", name: "KB Goblet Squat", equipment: ["Kettlebell"], type: "Kettlebell", superset: false },
+    { id: "kb5", name: "KB Clean & Press", equipment: ["Kettlebell"], type: "Kettlebell", superset: false },
+    { id: "kb6", name: "KB Snatch", equipment: ["Kettlebell"], type: "Kettlebell", superset: false },
+    { id: "kb7", name: "KB Farmer's Walk", equipment: ["Kettlebell"], type: "Kettlebell", superset: false },
+    { id: "kb8", name: "KB Windmill", equipment: ["Kettlebell"], type: "Kettlebell", superset: true },
+    { id: "kb9", name: "KB Halo", equipment: ["Kettlebell"], type: "Kettlebell", superset: true },
+    { id: "kb10", name: "KB Renegade Row", equipment: ["Kettlebell"], type: "Kettlebell", superset: true },
+    { id: "kb11", name: "KB Deadlift", equipment: ["Kettlebell"], type: "Kettlebell", superset: false },
+    { id: "kb12", name: "KB Ausfallschritte", equipment: ["Kettlebell"], type: "Kettlebell", superset: false },
+  ],
+};
+
+const EQUIP_ICONS = {
+  "Langhantel":"🏋️","Kurzhantel":"💪","Kabelzug":"🔗","Maschine":"⚙️",
+  "Körpergewicht":"🧍","Zusatzgewicht":"⚖️","Band":"🎗️","Sling/TRX":"🪢",
+  "Medizinball":"🏀","Kettlebell":"🫙","Smith Machine":"📐",
+};
+
+const calc1RM = (weight, reps) => {
+  if (!weight || !reps) return 0;
+  if (reps === 1) return weight;
+  return Math.round(weight * (1 + reps / 30));
+};
+
+function Sparkline({ data, width = 80, height = 24 }) {
+  if (!data || data.length < 2) return null;
+  const vals = data.map(d => d.rm);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = max - min || 1;
+  const pts = vals.map((v, i) => {
+    const x = (i / (vals.length - 1)) * width;
+    const y = height - ((v - min) / range) * (height - 4) - 2;
+    return `${x},${y}`;
+  }).join(" ");
+  const trend = vals[vals.length - 1] >= vals[0];
+  const lastPt = pts.split(" ").pop().split(",");
+  return (
+    <svg width={width} height={height} style={{ overflow: "visible" }}>
+      <polyline points={pts} fill="none" stroke={trend ? C.green : C.accent} strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx={lastPt[0]} cy={lastPt[1]} r="3" fill={trend ? C.green : C.accent} />
+    </svg>
+  );
+}
+
+// ── Superset-Badge ────────────────────────────────────────────────────────────
+function SupersetBadge() {
+  return (
+    <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 8,
+      background: C.goldGlow, border: `1px solid ${C.gold}`, color: C.gold,
+      letterSpacing: 0.5, textTransform: "uppercase" }}>
+      SS
+    </span>
+  );
+}
+
+// ── Einzelner Satz-Input-Block ─────────────────────────────────────────────────
+function SetRow({ setNum, s, exId, updateSet, color = C.accent }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 58px 34px", gap: 5, marginBottom: 5, alignItems: "center" }}>
+      <div style={{ fontSize: 12, color: s.done ? C.green : C.muted, fontWeight: 700, textAlign: "center" }}>
+        {s.done ? "✓" : setNum}
+      </div>
+      <input type="number" value={s.weight} onChange={e => updateSet(exId, setNum-1, "weight", e.target.value)}
+        placeholder="kg" style={iStyle()} />
+      <input type="number" value={s.reps} onChange={e => updateSet(exId, setNum-1, "reps", e.target.value)}
+        placeholder="Wdh" style={iStyle()} />
+      <select value={s.rpe} onChange={e => updateSet(exId, setNum-1, "rpe", e.target.value)}
+        style={{ ...iStyle(), padding: "8px 3px", fontSize: 12 }}>
+        <option value="">–</option>
+        {[6,6.5,7,7.5,8,8.5,9,9.5,10].map(r => <option key={r} value={r}>{r}</option>)}
+      </select>
+      <button onClick={() => updateSet(exId, setNum-1, "done", !s.done)}
+        style={{ width: 32, height: 32, borderRadius: 8, border: `2px solid ${s.done ? C.green : C.border}`,
+          background: s.done ? C.green + "22" : "transparent", color: s.done ? C.green : C.muted,
+          cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        ✓
+      </button>
+    </div>
+  );
+}
+
+const iStyle = () => ({
+  background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 8,
+  color: C.text, fontSize: 14, padding: "8px 6px", outline: "none", textAlign: "center", width: "100%",
+});
+
+// ── Superset-Karte im aktiven Training ────────────────────────────────────────
+function SupersetCard({ exA, exB, workoutLog, updateSet, addSet, removeSet, startRest, getLastSession, getTimeline }) {
+  // Aktiver Satz-Index pro Übung im Wechsel: Runde 0 → A, Runde 1 → B, ...
+  const setsA = workoutLog[exA.exId] || [];
+  const setsB = workoutLog[exB.exId] || [];
+  const numSets = Math.max(setsA.length, setsB.length);
+
+  // Welcher "Runden-Schritt" ist als nächstes dran?
+  // Eine Runde = A[i] dann B[i]. Wir zeigen alle Runden untereinander.
+  const tlA = getTimeline(exA.exId);
+  const tlB = getTimeline(exB.exId);
+  const lastA = getLastSession(exA.exId);
+  const lastB = getLastSession(exB.exId);
+
+  const bestRM_A = setsA.filter(s => s.weight && s.reps).length > 0
+    ? Math.max(...setsA.filter(s=>s.weight&&s.reps).map(s=>calc1RM(parseFloat(s.weight),parseInt(s.reps)))) : null;
+  const bestRM_B = setsB.filter(s => s.weight && s.reps).length > 0
+    ? Math.max(...setsB.filter(s=>s.weight&&s.reps).map(s=>calc1RM(parseFloat(s.weight),parseInt(s.reps)))) : null;
+
+  return (
+    <div style={{ border: `2px solid ${C.gold}`, borderRadius: 16, overflow: "hidden", marginBottom: 8 }}>
+      {/* Header Superset */}
+      <div style={{ background: C.goldGlow, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <SupersetBadge />
+          <span style={{ fontSize: 13, color: C.gold, fontWeight: 700 }}>
+            {exA.name} <span style={{ color: C.muted, fontWeight: 400 }}>+</span> {exB.name}
+          </span>
+        </div>
+        <button onClick={() => startRest(exA.restSec || 120)}
+          style={{ fontSize: 11, padding: "4px 10px", background: "rgba(0,0,0,0.3)", border: `1px solid ${C.gold}40`,
+            borderRadius: 8, color: C.gold, cursor: "pointer" }}>
+          ⏱ Pause
+        </button>
+      </div>
+
+      <div style={{ padding: "14px 16px", background: C.card }}>
+        {/* Letzte Session Info */}
+        {(lastA || lastB) && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            {lastA && (
+              <div style={{ flex: 1, fontSize: 11, color: C.muted, padding: "5px 8px", background: "rgba(255,255,255,0.03)", borderRadius: 6 }}>
+                <span style={{ color: C.textSub, fontWeight: 600 }}>A</span> {lastA.sets.map((s,i)=>`${s.weight}kg×${s.reps}`).join(" · ")}
+              </div>
+            )}
+            {lastB && (
+              <div style={{ flex: 1, fontSize: 11, color: C.muted, padding: "5px 8px", background: "rgba(255,255,255,0.03)", borderRadius: 6 }}>
+                <span style={{ color: C.textSub, fontWeight: 600 }}>B</span> {lastB.sets.map((s,i)=>`${s.weight}kg×${s.reps}`).join(" · ")}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Runden: je eine Zeile für Runde i mit A oben, B darunter, getrennt durch dünne Linie */}
+        {Array.from({ length: numSets }).map((_, roundIdx) => {
+          const sA = setsA[roundIdx];
+          const sB = setsB[roundIdx];
+          const bothDone = sA?.done && sB?.done;
+          return (
+            <div key={roundIdx} style={{ marginBottom: 10, borderRadius: 10,
+              border: `1px solid ${bothDone ? C.green + "44" : C.border}`,
+              background: bothDone ? C.green + "08" : "transparent",
+              overflow: "hidden" }}>
+              {/* Runden-Header */}
+              <div style={{ padding: "5px 10px", background: bothDone ? C.green + "15" : "rgba(255,255,255,0.02)",
+                display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: bothDone ? C.green : C.muted,
+                  textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  {bothDone ? "✓" : ""} Runde {roundIdx + 1}
+                </span>
+              </div>
+
+              <div style={{ padding: "8px 10px" }}>
+                {/* Übung A */}
+                {sA && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, minWidth: 16 }}>A</span>
+                      <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>{exA.name}</span>
+                      <span style={{ fontSize: 11, color: C.muted }}>{EQUIP_ICONS[exA.equipment]} {exA.equipment}</span>
+                      {tlA.length >= 2 && <div style={{ marginLeft: "auto" }}><Sparkline data={tlA} width={48} height={18} /></div>}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 58px 34px", gap: 5, marginBottom: 0, alignItems: "center" }}>
+                      <div style={{ fontSize: 11, color: C.muted, textAlign: "center" }}>{roundIdx+1}</div>
+                      <input type="number" value={sA.weight} onChange={e => updateSet(exA.exId, roundIdx, "weight", e.target.value)}
+                        placeholder="kg" style={iStyle()} />
+                      <input type="number" value={sA.reps} onChange={e => updateSet(exA.exId, roundIdx, "reps", e.target.value)}
+                        placeholder="Wdh" style={iStyle()} />
+                      <select value={sA.rpe} onChange={e => updateSet(exA.exId, roundIdx, "rpe", e.target.value)}
+                        style={{ ...iStyle(), padding: "8px 3px", fontSize: 12 }}>
+                        <option value="">–</option>
+                        {[6,6.5,7,7.5,8,8.5,9,9.5,10].map(r=><option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <button onClick={() => updateSet(exA.exId, roundIdx, "done", !sA.done)}
+                        style={{ width:32, height:32, borderRadius:8, border:`2px solid ${sA.done?C.green:C.border}`,
+                          background: sA.done ? C.green+"22" : "transparent", color: sA.done ? C.green : C.muted,
+                          cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>✓
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Trennlinie */}
+                <div style={{ borderTop: `1px dashed ${C.border}`, margin: "6px 0" }} />
+
+                {/* Übung B */}
+                {sB && (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, minWidth: 16 }}>B</span>
+                      <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>{exB.name}</span>
+                      <span style={{ fontSize: 11, color: C.muted }}>{EQUIP_ICONS[exB.equipment]} {exB.equipment}</span>
+                      {tlB.length >= 2 && <div style={{ marginLeft: "auto" }}><Sparkline data={tlB} width={48} height={18} /></div>}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 58px 34px", gap: 5, alignItems: "center" }}>
+                      <div style={{ fontSize: 11, color: C.muted, textAlign: "center" }}>{roundIdx+1}</div>
+                      <input type="number" value={sB.weight} onChange={e => updateSet(exB.exId, roundIdx, "weight", e.target.value)}
+                        placeholder="kg" style={iStyle()} />
+                      <input type="number" value={sB.reps} onChange={e => updateSet(exB.exId, roundIdx, "reps", e.target.value)}
+                        placeholder="Wdh" style={iStyle()} />
+                      <select value={sB.rpe} onChange={e => updateSet(exB.exId, roundIdx, "rpe", e.target.value)}
+                        style={{ ...iStyle(), padding: "8px 3px", fontSize: 12 }}>
+                        <option value="">–</option>
+                        {[6,6.5,7,7.5,8,8.5,9,9.5,10].map(r=><option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <button onClick={() => updateSet(exB.exId, roundIdx, "done", !sB.done)}
+                        style={{ width:32, height:32, borderRadius:8, border:`2px solid ${sB.done?C.green:C.border}`,
+                          background: sB.done ? C.green+"22" : "transparent", color: sB.done ? C.green : C.muted,
+                          cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>✓
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* + / − Runden */}
+        <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => { removeSet(exA.exId); removeSet(exB.exId); }} style={ghostBtn(true)}>− Runde</button>
+            <button onClick={() => { addSet(exA.exId); addSet(exB.exId); }} style={ghostBtn(true)}>+ Runde</button>
+          </div>
+          <div style={{ fontSize: 11, color: C.muted }}>
+            ⏱ {Math.floor((exA.restSec||120)/60)}:{String((exA.restSec||120)%60).padStart(2,"0")} nach Runde
+          </div>
+        </div>
+
+        {/* 1RM Summary */}
+        {(bestRM_A || bestRM_B) && (
+          <div style={{ marginTop: 10, padding: "6px 10px", background: C.goldGlow, borderRadius: 6, fontSize: 11, color: C.gold, fontWeight: 600, display:"flex", gap:16 }}>
+            {bestRM_A && <span>A best 1RM: {bestRM_A} kg</span>}
+            {bestRM_B && <span>B best 1RM: {bestRM_B} kg</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const ghostBtn = (small = false) => ({
+  border: `1.5px solid ${C.border}`, borderRadius: 10, cursor: "pointer", fontWeight: 700,
+  fontSize: small ? 12 : 14, padding: small ? "7px 14px" : "11px 20px",
+  background: C.border, color: C.textSub,
+});
+
+const accentBtn = (small = false) => ({
+  border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700,
+  fontSize: small ? 12 : 14, padding: small ? "7px 14px" : "11px 20px",
+  background: C.accent, color: "#fff",
+});
+
+// ── Hauptkomponente ────────────────────────────────────────────────────────────
+function KraftApp() {
+  const [view, setView] = useState("home");
+  const [sessions, setSessions] = useState(() => {
+    const s = localStorage.getItem("kf_sessions");
+    return s ? JSON.parse(s) : [
+      {
+        id: "push", name: "Push Day A", icon: "🔼",
+        exercises: [
+          { exId: "b1", name: "Bankdrücken", equipment: "Langhantel", sets: 4, restSec: 120, supersetWith: null },
+          { exId: "s2", name: "Seitheben", equipment: "Kurzhantel", sets: 3, restSec: 90, supersetWith: "tri1" },
+          { exId: "tri1", name: "Trizepsdrücken", equipment: "Kabelzug", sets: 3, restSec: 90, supersetWith: "s2" },
+        ]
+      },
+      {
+        id: "pull", name: "Pull Day B", icon: "🔽",
+        exercises: [
+          { exId: "r1", name: "Klimmzüge", equipment: "Körpergewicht", sets: 4, restSec: 120, supersetWith: null },
+          { exId: "r3", name: "Latziehen", equipment: "Kabelzug", sets: 3, restSec: 120, supersetWith: "bi1" },
+          { exId: "bi1", name: "Bizepscurl", equipment: "Kurzhantel", sets: 3, restSec: 90, supersetWith: "r3" },
+        ]
+      },
+      {
+        id: "legs", name: "Beine & Core", icon: "🦵",
+        exercises: [
+          { exId: "l1", name: "Kniebeuge", equipment: "Langhantel", sets: 4, restSec: 180, supersetWith: null },
+          { exId: "l4", name: "Beinstrecker", equipment: "Maschine", sets: 3, restSec: 90, supersetWith: "l5" },
+          { exId: "l5", name: "Beinbeuger", equipment: "Maschine", sets: 3, restSec: 90, supersetWith: "l4" },
+          { exId: "c1", name: "Plank", equipment: "Körpergewicht", sets: 3, restSec: 60, supersetWith: null },
+        ]
+      }
+    ];
+  });
+
+  const [history, setHistory] = useState(() => {
+    const h = localStorage.getItem("kf_history");
+    return h ? JSON.parse(h) : {};
+  });
+
+  const [activeSession, setActiveSession] = useState(null);
+  const [workoutLog, setWorkoutLog] = useState({});
+  const [libFilter, setLibFilter] = useState("Alle");
+  const [editingSession, setEditingSession] = useState(null);
+  const [timerLeft, setTimerLeft] = useState(0);
+  const [restActive, setRestActive] = useState(false);
+  const [supersetPicking, setSupersetPicking] = useState(null);
+  const [workoutStartTime, setWorkoutStartTime] = useState(null);
+  const [workoutElapsed, setWorkoutElapsed] = useState(0);
+  const timerRef = useRef(null);
+  const workoutTickRef = useRef(null);
+
+  useEffect(() => { localStorage.setItem("kf_sessions", JSON.stringify(sessions)); }, [sessions]);
+  useEffect(() => { localStorage.setItem("kf_history", JSON.stringify(history)); }, [history]);
+
+  useEffect(() => {
+    if (restActive && timerLeft > 0) {
+      timerRef.current = setTimeout(() => setTimerLeft(t => t - 1), 1000);
+    } else if (timerLeft === 0 && restActive) {
+      setRestActive(false);
+    }
+    return () => clearTimeout(timerRef.current);
+  }, [restActive, timerLeft]);
+
+  // Workout-Stoppuhr
+  useEffect(() => {
+    if (workoutStartTime) {
+      workoutTickRef.current = setInterval(() => {
+        setWorkoutElapsed(Math.floor((Date.now() - workoutStartTime) / 1000));
+      }, 1000);
+    } else {
+      setWorkoutElapsed(0);
+    }
+    return () => clearInterval(workoutTickRef.current);
+  }, [workoutStartTime]);
+
+  const fmtDuration = (sec) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  };
+
+  const startRest = (sec) => { setTimerLeft(sec); setRestActive(true); };
+  const getLastSession = (exId) => { const h = history[exId]; return h?.length ? h[h.length-1] : null; };
+  const getTimeline = (exId) => (history[exId]||[]).map(s => ({ date: s.date, rm: Math.max(...s.sets.map(st => calc1RM(st.weight, st.reps))) }));
+
+  const startSession = (session) => {
+    setActiveSession(session);
+    const log = {};
+    session.exercises.forEach(ex => {
+      const last = getLastSession(ex.exId);
+      log[ex.exId] = Array.from({ length: ex.sets }, (_, i) => ({
+        weight: last?.sets?.[i]?.weight || "", reps: last?.sets?.[i]?.reps || "", rpe: "", done: false,
+      }));
+    });
+    setWorkoutLog(log);
+    setWorkoutStartTime(Date.now());
+    setView("active");
+  };
+
+  const updateSet = (exId, idx, field, val) => {
+    setWorkoutLog(prev => ({ ...prev, [exId]: prev[exId].map((s, i) => i === idx ? { ...s, [field]: val } : s) }));
+  };
+
+  const addSet = (exId) => {
+    setWorkoutLog(prev => {
+      const sets = prev[exId] || [];
+      const last = sets[sets.length-1] || {};
+      return { ...prev, [exId]: [...sets, { weight: last.weight||"", reps: last.reps||"", rpe: "", done: false }] };
+    });
+  };
+
+  const removeSet = (exId) => {
+    setWorkoutLog(prev => {
+      const sets = prev[exId] || [];
+      return sets.length <= 1 ? prev : { ...prev, [exId]: sets.slice(0, -1) };
+    });
+  };
+
+  const finishSession = () => {
+    const newHistory = { ...history };
+    const durationSec = workoutElapsed;
+    activeSession.exercises.forEach(ex => {
+      const valid = (workoutLog[ex.exId]||[]).filter(s => s.weight !== "" || s.reps !== "");
+      if (valid.length > 0) {
+        if (!newHistory[ex.exId]) newHistory[ex.exId] = [];
+        newHistory[ex.exId].push({ date: new Date().toISOString(), sets: valid, durationSec });
+      }
+    });
+    setHistory(newHistory);
+    setWorkoutStartTime(null);
+    setView("home"); setActiveSession(null);
+  };
+
+  // ── Superset verknüpfen (im Editor) ──────────────────────────────────────────
+  const linkSuperset = (idA, idB) => {
+    setEditingSession(s => ({
+      ...s,
+      exercises: s.exercises.map(ex => {
+        if (ex.exId === idA) return { ...ex, supersetWith: idB };
+        if (ex.exId === idB) return { ...ex, supersetWith: idA };
+        return ex;
+      })
+    }));
+    setSupersetPicking(null);
+  };
+
+  const unlinkSuperset = (exId) => {
+    setEditingSession(s => {
+      const ex = s.exercises.find(e => e.exId === exId);
+      const partnerId = ex?.supersetWith;
+      return {
+        ...s,
+        exercises: s.exercises.map(e => {
+          if (e.exId === exId || e.exId === partnerId) return { ...e, supersetWith: null };
+          return e;
+        })
+      };
+    });
+  };
+
+  // ── Rendering Helpers ─────────────────────────────────────────────────────────
+  const cardS = () => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px" });
+  const labelS = () => ({ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 });
+  const miniBtn = () => ({ width:28, height:28, borderRadius:7, border:`1.5px solid ${C.border}`, background:C.surface, color:C.text, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" });
+
+  // ── HOME ──────────────────────────────────────────────────────────────────────
+  const renderHome = () => (
+    <div style={{ padding: "20px 16px", maxWidth: 480, margin: "0 auto" }}>
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontSize: 11, letterSpacing: 3, color: C.accent, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Olympiazentrum Vorarlberg</div>
+        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: C.text, lineHeight: 1.2 }}>Krafttraining</h1>
+        <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>{sessions.length} Sessions · {Object.keys(history).length} Übungen mit Verlauf</div>
+      </div>
+      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+        <button onClick={() => setView("library")} style={ghostBtn()}>📚 Bibliothek</button>
+        <button onClick={() => { setEditingSession({ id: Date.now().toString(), name: "", icon: "💪", exercises: [] }); setView("edit"); }} style={accentBtn()}>+ Neue Session</button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {sessions.map(s => {
+          const lastDone = s.exercises.map(ex => getLastSession(ex.exId)?.date).filter(Boolean).sort().pop();
+          const lastDuration = s.exercises.map(ex => getLastSession(ex.exId)?.durationSec).filter(Boolean).pop();
+          // Supersets zusammenfassen für Anzeige
+          const displayExercises = [];
+          const shownIds = new Set();
+          s.exercises.forEach(ex => {
+            if (shownIds.has(ex.exId)) return;
+            shownIds.add(ex.exId);
+            if (ex.supersetWith) {
+              const partner = s.exercises.find(e => e.exId === ex.supersetWith);
+              if (partner && !shownIds.has(partner.exId)) {
+                shownIds.add(partner.exId);
+                displayExercises.push({ type: "superset", exA: ex, exB: partner });
+                return;
+              }
+            }
+            displayExercises.push({ type: "single", ex });
+          });
+
+          return (
+            <div key={s.id} style={cardS()}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 24 }}>{s.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 16, color: C.text }}>{s.name}</div>
+                    <div style={{ fontSize: 12, color: C.muted }}>
+                      {s.exercises.length} Übungen · {lastDone ? `Zuletzt: ${new Date(lastDone).toLocaleDateString("de-AT")}` : "Noch nicht trainiert"}
+                      {lastDuration && <span style={{ color: C.green }}> · ⏱ {fmtDuration(lastDuration)}</span>}
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => { setEditingSession(JSON.parse(JSON.stringify(s))); setView("edit"); }}
+                  style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>✏️</button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 14 }}>
+                {displayExercises.map((item, idx) => {
+                  if (item.type === "superset") {
+                    const { exA, exB } = item;
+                    const lastA = getLastSession(exA.exId);
+                    const lastB = getLastSession(exB.exId);
+                    const bestA = lastA?.sets?.reduce((b,s2)=>calc1RM(s2.weight,s2.reps)>calc1RM(b.weight,b.reps)?s2:b,lastA.sets[0]);
+                    const bestB = lastB?.sets?.reduce((b,s2)=>calc1RM(s2.weight,s2.reps)>calc1RM(b.weight,b.reps)?s2:b,lastB.sets[0]);
+                    return (
+                      <div key={idx} style={{ padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.gold}44`, background: C.goldGlow + "60", borderBottom: `1px solid ${C.border}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                          <SupersetBadge />
+                          <span style={{ fontSize: 12, color: C.gold, fontWeight: 700 }}>{exA.name} + {exB.name}</span>
+                          <span style={{ fontSize: 11, color: C.muted }}>· {exA.sets} Runden</span>
+                        </div>
+                        {(bestA || bestB) && (
+                          <div style={{ fontSize: 11, color: C.muted }}>
+                            {bestA && <span>A: <b style={{color:C.text}}>{bestA.weight}kg×{bestA.reps}</b> </span>}
+                            {bestB && <span>B: <b style={{color:C.text}}>{bestB.weight}kg×{bestB.reps}</b></span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  const { ex } = item;
+                  const last = getLastSession(ex.exId);
+                  const tl = getTimeline(ex.exId);
+                  const best = last?.sets?.reduce((b,s2)=>calc1RM(s2.weight,s2.reps)>calc1RM(b.weight,b.reps)?s2:b,last.sets[0]);
+                  return (
+                    <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+                      <div>
+                        <div style={{ fontSize: 13, color: C.text, fontWeight: 500 }}>{ex.name}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>
+                          {ex.sets} Sätze · {EQUIP_ICONS[ex.equipment]||""} {ex.equipment}
+                          {last && best && <span style={{color:C.textSub}}> · Letztes: <b style={{color:C.text}}>{best.weight}kg×{best.reps}</b> = {calc1RM(best.weight,best.reps)} kg 1RM</span>}
+                        </div>
+                      </div>
+                      {tl.length >= 2 && <Sparkline data={tl} />}
+                    </div>
+                  );
+                })}
+              </div>
+              <button onClick={() => startSession(s)} style={{ ...accentBtn(), width: "100%", fontSize: 15, padding: "12px" }}>
+                ▶ Session starten
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // ── AKTIVE SESSION ────────────────────────────────────────────────────────────
+  const renderActive = () => {
+    if (!activeSession) return null;
+
+    // Blöcke bilden: Supersets zusammenfassen, Rest einzeln
+    const blocks = [];
+    const shown = new Set();
+    activeSession.exercises.forEach(ex => {
+      if (shown.has(ex.exId)) return;
+      shown.add(ex.exId);
+      if (ex.supersetWith) {
+        const partner = activeSession.exercises.find(e => e.exId === ex.supersetWith);
+        if (partner && !shown.has(partner.exId)) {
+          shown.add(partner.exId);
+          blocks.push({ type: "superset", exA: ex, exB: partner });
+          return;
+        }
+      }
+      blocks.push({ type: "single", ex });
+    });
+
+    return (
+      <div style={{ padding: "16px", maxWidth: 480, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <button onClick={() => { if (confirm("Session abbrechen?")) { setWorkoutStartTime(null); setView("home"); setActiveSession(null); } }}
+            style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20 }}>←</button>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: C.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: 2 }}>Aktive Session</div>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>{activeSession.icon} {activeSession.name}</h2>
+          </div>
+          {/* Workout-Stoppuhr */}
+          <div style={{ textAlign: "right", minWidth: 64 }}>
+            <div style={{ fontSize: 10, color: C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Einheit</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: C.text, fontVariantNumeric: "tabular-nums", letterSpacing: -0.5 }}>
+              {fmtDuration(workoutElapsed)}
+            </div>
+          </div>
+        </div>
+
+        {restActive && (
+          <div style={{ background: C.accentGlow, border: `1px solid ${C.accent}`, borderRadius: 12, padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 11, color: C.accent, fontWeight: 700, textTransform: "uppercase" }}>Pause</div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: C.text, fontVariantNumeric: "tabular-nums" }}>
+                {String(Math.floor(timerLeft/60)).padStart(2,"0")}:{String(timerLeft%60).padStart(2,"0")}
+              </div>
+            </div>
+            <button onClick={() => setRestActive(false)} style={ghostBtn()}>Überspringen</button>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {blocks.map((block, bi) => {
+            if (block.type === "superset") {
+              return (
+                <SupersetCard key={bi}
+                  exA={block.exA} exB={block.exB}
+                  workoutLog={workoutLog}
+                  updateSet={updateSet} addSet={addSet} removeSet={removeSet}
+                  startRest={startRest}
+                  getLastSession={getLastSession} getTimeline={getTimeline}
+                />
+              );
+            }
+            const { ex } = block;
+            const sets = workoutLog[ex.exId] || [];
+            const last = getLastSession(ex.exId);
+            const tl = getTimeline(ex.exId);
+            const bestRM = sets.filter(s=>s.weight&&s.reps).length > 0
+              ? Math.max(...sets.filter(s=>s.weight&&s.reps).map(s=>calc1RM(parseFloat(s.weight),parseInt(s.reps)))) : null;
+            return (
+              <div key={bi} style={cardS()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 16, color: C.text }}>{ex.name}</div>
+                    <div style={{ fontSize: 12, color: C.muted }}>{EQUIP_ICONS[ex.equipment]} {ex.equipment}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {tl.length >= 2 && <Sparkline data={tl} width={60} />}
+                    <button onClick={() => startRest(ex.restSec||120)}
+                      style={{ fontSize: 11, padding: "4px 10px", background: C.border, border: "none", borderRadius: 8, color: C.textSub, cursor: "pointer" }}>⏱ Pause</button>
+                  </div>
+                </div>
+
+                {last && (
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 10, padding: "6px 10px", background: "rgba(255,255,255,0.03)", borderRadius: 6 }}>
+                    📋 Letzte Session: {last.sets.map((s,i)=>`S${i+1}: ${s.weight}kg×${s.reps}`).join(" · ")}
+                  </div>
+                )}
+
+                <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 58px 34px", gap: 5, marginBottom: 4 }}>
+                  {["","Gewicht (kg)","Wdh.","RPE",""].map((h,i)=>(
+                    <div key={i} style={{ fontSize: 10, color: C.muted, textAlign: i===0?"left":"center", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</div>
+                  ))}
+                </div>
+                {sets.map((s, i) => <SetRow key={i} setNum={i+1} s={s} exId={ex.exId} updateSet={updateSet} />)}
+
+                <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => removeSet(ex.exId)} style={ghostBtn(true)}>− Satz</button>
+                    <button onClick={() => addSet(ex.exId)} style={ghostBtn(true)}>+ Satz</button>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted }}>
+                    ⏱ {Math.floor((ex.restSec||120)/60)}:{String((ex.restSec||120)%60).padStart(2,"0")} Pause
+                  </div>
+                </div>
+                {bestRM && (
+                  <div style={{ marginTop: 10, padding: "6px 10px", background: C.accentGlow, borderRadius: 6, fontSize: 11, color: C.accent, fontWeight: 600 }}>
+                    Bestes 1RM heute: {bestRM} kg
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: 20, marginBottom: 32 }}>
+          <div style={{ textAlign: "center", marginBottom: 10, fontSize: 13, color: C.muted }}>
+            Gesamtdauer: <span style={{ color: C.text, fontWeight: 700, fontSize: 15 }}>{fmtDuration(workoutElapsed)}</span>
+          </div>
+          <button onClick={finishSession} style={{ ...accentBtn(), width: "100%", fontSize: 16, padding: "16px" }}>
+            ✅ Session abschließen & speichern
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ── SESSION BEARBEITEN ────────────────────────────────────────────────────────
+  const renderEdit = () => {
+    if (!editingSession) return null;
+    const isNew = !sessions.find(s => s.id === editingSession.id);
+    const saveSession = () => {
+      setSessions(prev => {
+        const ex = prev.find(s => s.id === editingSession.id);
+        return ex ? prev.map(s => s.id===editingSession.id?editingSession:s) : [...prev, editingSession];
+      });
+      setView("home");
+    };
+    const deleteSession = () => {
+      if (confirm("Session löschen?")) { setSessions(prev => prev.filter(s => s.id!==editingSession.id)); setView("home"); }
+    };
+
+    return (
+      <div style={{ padding: "16px", maxWidth: 480, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <button onClick={() => setView("home")} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20 }}>←</button>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>{isNew ? "Neue Session" : "Session bearbeiten"}</h2>
+        </div>
+
+        <div style={cardS()}>
+          <label style={labelS()}>Name</label>
+          <input value={editingSession.name} onChange={e => setEditingSession(s=>({...s,name:e.target.value}))}
+            placeholder="z.B. Push Day A" style={{ ...iStyle(), width:"100%", marginBottom:12, boxSizing:"border-box", textAlign:"left" }} />
+          <label style={labelS()}>Icon</label>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {["🔼","🔽","🦵","💪","🏋️","🔥","⚡","🎯"].map(em => (
+              <button key={em} onClick={() => setEditingSession(s=>({...s,icon:em}))}
+                style={{ fontSize:22, background:editingSession.icon===em?C.accentGlow:C.card, border:`2px solid ${editingSession.icon===em?C.accent:C.border}`, borderRadius:8, cursor:"pointer", padding:"6px 10px" }}>{em}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ margin: "16px 0 8px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div style={{ fontWeight: 700, color: C.text }}>Übungen</div>
+          <button onClick={() => setView("lib-pick")} style={accentBtn(true)}>+ Übung wählen</button>
+        </div>
+
+        {supersetPicking && (
+          <div style={{ padding: "10px 14px", background: C.goldGlow, border: `1px solid ${C.gold}`, borderRadius: 10, marginBottom: 12, fontSize: 13, color: C.gold }}>
+            <b>Superset-Modus:</b> Wähle die Partner-Übung für <b>{editingSession.exercises.find(e=>e.exId===supersetPicking)?.name}</b>
+            <button onClick={() => setSupersetPicking(null)} style={{ marginLeft: 10, background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>✕</button>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {editingSession.exercises.map((ex, i) => {
+            const partner = ex.supersetWith ? editingSession.exercises.find(e=>e.exId===ex.supersetWith) : null;
+            const isPickTarget = supersetPicking && supersetPicking !== ex.exId && !ex.supersetWith;
+            return (
+              <div key={ex.exId+i} style={{ ...cardS(), padding:"12px 14px",
+                border: isPickTarget ? `2px solid ${C.gold}` : `1px solid ${C.border}`,
+                background: isPickTarget ? C.goldGlow : C.card,
+                cursor: isPickTarget ? "pointer" : "default" }}
+                onClick={() => isPickTarget && linkSuperset(supersetPicking, ex.exId)}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {partner && <SupersetBadge />}
+                    <div>
+                      <div style={{ fontWeight: 600, color: C.text, fontSize: 14 }}>{ex.name}</div>
+                      <div style={{ fontSize: 12, color: C.muted }}>{EQUIP_ICONS[ex.equipment]} {ex.equipment}
+                        {partner && <span style={{color:C.gold}}> · SS mit {partner.name}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={e2 => { e2.stopPropagation(); setEditingSession(s=>({...s,exercises:s.exercises.filter((_,j)=>j!==i)})); }}
+                    style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:18 }}>🗑</button>
+                </div>
+
+                <div style={{ display:"flex", gap:12, marginTop:10, alignItems:"center", flexWrap:"wrap" }}>
+                  <div>
+                    <div style={{ fontSize:11, color:C.muted, marginBottom:3 }}>Sätze</div>
+                    <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                      <button onClick={() => setEditingSession(s=>({...s,exercises:s.exercises.map((e,j)=>j===i?{...e,sets:Math.max(1,e.sets-1)}:e)}))} style={miniBtn()}>−</button>
+                      <span style={{ color:C.text, fontWeight:700, minWidth:20, textAlign:"center" }}>{ex.sets}</span>
+                      <button onClick={() => setEditingSession(s=>({...s,exercises:s.exercises.map((e,j)=>j===i?{...e,sets:e.sets+1}:e)}))} style={miniBtn()}>+</button>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, color:C.muted, marginBottom:3 }}>Pause</div>
+                    <select value={ex.restSec||120} onChange={e2=>setEditingSession(s=>({...s,exercises:s.exercises.map((e,j)=>j===i?{...e,restSec:parseInt(e2.target.value)}:e)}))}
+                      style={{ ...iStyle(), padding:"6px 8px", fontSize:12, width:"auto" }}>
+                      {[30,45,60,90,120,150,180,240,300].map(v=><option key={v} value={v}>{v}s ({Math.floor(v/60)}:{String(v%60).padStart(2,"0")})</option>)}
+                    </select>
+                  </div>
+                  {!ex.supersetWith && !supersetPicking && (
+                    <button onClick={() => setSupersetPicking(ex.exId)}
+                      style={{ fontSize:11, padding:"5px 10px", background:C.goldGlow, border:`1px solid ${C.gold}55`, borderRadius:8, color:C.gold, cursor:"pointer", fontWeight:600 }}>
+                      ⚡ Superset
+                    </button>
+                  )}
+                  {ex.supersetWith && (
+                    <button onClick={() => unlinkSuperset(ex.exId)}
+                      style={{ fontSize:11, padding:"5px 10px", background:"rgba(255,255,255,0.04)", border:`1px solid ${C.border}`, borderRadius:8, color:C.muted, cursor:"pointer" }}>
+                      SS trennen
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ display:"flex", gap:10, marginTop:20, marginBottom:32 }}>
+          {!isNew && <button onClick={deleteSession} style={{ ...ghostBtn(), color:C.accent }}>Löschen</button>}
+          <button onClick={saveSession} style={{ ...accentBtn(), flex:1 }}>Speichern</button>
+        </div>
+      </div>
+    );
+  };
+
+  // ── BIBLIOTHEK (Übung wählen) ─────────────────────────────────────────────────
+  const renderLibPick = () => {
+    const muscles = ["Alle", ...Object.keys(LIBRARY)];
+    const allEx = Object.entries(LIBRARY).flatMap(([mg,exs])=>exs.map(e=>({...e,muscleGroup:mg})));
+    const filtered = libFilter==="Alle" ? allEx : allEx.filter(e=>e.muscleGroup===libFilter);
+    return (
+      <div style={{ padding:"16px", maxWidth:480, margin:"0 auto" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+          <button onClick={() => setView("edit")} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:20 }}>←</button>
+          <h2 style={{ margin:0, fontSize:20, fontWeight:800, color:C.text }}>Übung wählen</h2>
+        </div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
+          {muscles.map(m=>(
+            <button key={m} onClick={()=>setLibFilter(m)} style={{ padding:"6px 12px", borderRadius:20, border:`1.5px solid ${libFilter===m?C.accent:C.border}`, background:libFilter===m?C.accentGlow:C.surface, color:libFilter===m?C.accent:C.textSub, fontSize:12, cursor:"pointer", fontWeight:libFilter===m?700:400 }}>{m}</button>
+          ))}
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {filtered.map(ex => {
+            const already = editingSession?.exercises.some(e=>e.exId===ex.id);
+            return (
+              <div key={ex.id} style={{ ...cardS(), padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <div style={{ fontWeight:600, color:C.text, fontSize:14 }}>{ex.name}</div>
+                  <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>
+                    {ex.muscleGroup} · {ex.equipment.map(eq=>EQUIP_ICONS[eq]||eq).join(" ")}
+                    {ex.type!=="Gewicht" && <span style={{ marginLeft:6, padding:"1px 6px", background:C.border, borderRadius:8, color:C.textSub }}>{ex.type}</span>}
+                    {ex.superset && <span style={{ marginLeft:4, padding:"1px 6px", background:C.goldGlow, borderRadius:8, color:C.gold, fontSize:10 }}>SS ✓</span>}
+                  </div>
+                </div>
+                <button onClick={() => {
+                  if (!already) {
+                    setEditingSession(s=>({...s,exercises:[...s.exercises,{exId:ex.id,name:ex.name,equipment:ex.equipment[0],sets:3,restSec:120,supersetWith:null}]}));
+                  }
+                }} style={{ ...accentBtn(true), opacity:already?0.5:1, cursor:already?"default":"pointer" }}>
+                  {already ? "✓" : "+"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ── BIBLIOTHEK VIEW ───────────────────────────────────────────────────────────
+  const renderLibrary = () => {
+    const muscles = ["Alle", ...Object.keys(LIBRARY)];
+    const allEx = Object.entries(LIBRARY).flatMap(([mg,exs])=>exs.map(e=>({...e,muscleGroup:mg})));
+    const filtered = libFilter==="Alle" ? allEx : allEx.filter(e=>e.muscleGroup===libFilter);
+    return (
+      <div style={{ padding:"16px", maxWidth:480, margin:"0 auto" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+          <button onClick={() => setView("home")} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:20 }}>←</button>
+          <div>
+            <h2 style={{ margin:0, fontSize:20, fontWeight:800, color:C.text }}>Übungsbibliothek</h2>
+            <div style={{ fontSize:12, color:C.muted }}>{allEx.length} Übungen</div>
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
+          {muscles.map(m=>(
+            <button key={m} onClick={()=>setLibFilter(m)} style={{ padding:"6px 12px", borderRadius:20, border:`1.5px solid ${libFilter===m?C.accent:C.border}`, background:libFilter===m?C.accentGlow:C.surface, color:libFilter===m?C.accent:C.textSub, fontSize:12, cursor:"pointer", fontWeight:libFilter===m?700:400 }}>{m}</button>
+          ))}
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {filtered.map(ex => (
+            <div key={ex.id} style={{ ...cardS(), padding:"12px 14px" }}>
+              <div style={{ fontWeight:600, color:C.text, marginBottom:4 }}>{ex.name}</div>
+              <div style={{ fontSize:11, color:C.muted }}>
+                <span style={{color:C.accent,fontWeight:600}}>{ex.muscleGroup}</span> · Typ: {ex.type}
+                {ex.superset && <span style={{marginLeft:6,color:C.gold}}>· Superset möglich</span>}
+              </div>
+              <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:8 }}>
+                {ex.equipment.map(eq=>(
+                  <span key={eq} style={{ padding:"3px 8px", background:C.border, borderRadius:10, fontSize:11, color:C.textSub }}>{EQUIP_ICONS[eq]} {eq}</span>
+                ))}
+              </div>
+              {history[ex.id] && (
+                <div style={{ marginTop:8, padding:"6px 10px", background:"rgba(255,255,255,0.03)", borderRadius:6, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                  <div style={{ fontSize:11, color:C.muted }}>
+                    {history[ex.id].length}× trainiert · Bestes 1RM: <b style={{color:C.green}}>{Math.max(...history[ex.id].flatMap(s=>s.sets.map(st=>calc1RM(parseFloat(st.weight),parseInt(st.reps)))))} kg</b>
+                  </div>
+                  <Sparkline data={getTimeline(ex.id)} width={60} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Inter', system-ui, -apple-system, sans-serif" }}>
+      {view==="home" && renderHome()}
+      {view==="active" && renderActive()}
+      {view==="edit" && renderEdit()}
+      {view==="lib-pick" && renderLibPick()}
+      {view==="library" && renderLibrary()}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<KraftApp />);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/Strength-app/sw.js');
+  });
+}
+  </script>
+</body>
+</html>
