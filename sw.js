@@ -1,4 +1,4 @@
-const CACHE = 'krafttraining-v1';
+const CACHE = 'krafttraining-v3';
 const ASSETS = [
   '/Strength-app/',
   '/Strength-app/index.html',
