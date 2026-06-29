@@ -531,7 +531,8 @@ function KraftApp() {
       </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
         <button onClick={() => setView("library")} style={ghostBtn()}>📚 Bibliothek</button>
-        <button onClick={() => { setEditingSession({ id: Date.now().toString(), name: "", icon: "💪", exercises: [] }); setView("edit"); }} style={accentBtn()}>+ Neue Session</button>
+        <button onClick={() => setView("stats")} style={ghostBtn()}>📊 Statistik</button>
+        <button onClick={() => { setEditingSession({ id: Date.now().toString(), name: "", icon: "💪", exercises: [] }); setView("edit"); }} style={accentBtn()}>+ Neu</button>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {sessions.map(s => {
@@ -955,6 +956,347 @@ function KraftApp() {
     );
   };
 
+
+  // ── STATISTIK ─────────────────────────────────────────────────────────────────
+  const renderStats = () => {
+    const [statsTab, setStatsTab] = React.useState("dashboard");
+    const [selectedEx, setSelectedEx] = React.useState(null);
+
+    // ── Helpers ──
+    const allExIds = Object.keys(history);
+
+    // Alle Sessions flach mit Datum
+    const allSessions = allExIds.flatMap(exId =>
+      (history[exId] || []).map(s => ({ exId, date: s.date, sets: s.sets, durationSec: s.durationSec }))
+    );
+
+    // Unique Training-Tage (Datum ohne Uhrzeit)
+    const trainingDays = [...new Set(
+      allSessions.map(s => s.date.slice(0, 10))
+    )].sort();
+
+    // Trainingsstreak (Wochen in Folge)
+    const calcStreak = () => {
+      if (trainingDays.length === 0) return 0;
+      const weeks = new Set(trainingDays.map(d => {
+        const dt = new Date(d);
+        const jan1 = new Date(dt.getFullYear(), 0, 1);
+        return `${dt.getFullYear()}-${Math.ceil(((dt - jan1) / 86400000 + jan1.getDay() + 1) / 7)}`;
+      }));
+      const sorted = [...weeks].sort();
+      let streak = 1, max = 1;
+      for (let i = 1; i < sorted.length; i++) {
+        const [y1, w1] = sorted[i-1].split('-').map(Number);
+        const [y2, w2] = sorted[i].split('-').map(Number);
+        const diff = (y2 - y1) * 52 + (w2 - w1);
+        if (diff === 1) { streak++; max = Math.max(max, streak); }
+        else streak = 1;
+      }
+      return max;
+    };
+
+    // Gesamtvolumen (tonnage)
+    const totalVolume = allSessions.reduce((sum, s) =>
+      sum + s.sets.reduce((ss, set) => ss + (parseFloat(set.weight)||0) * (parseInt(set.reps)||0), 0), 0
+    );
+
+    // Muskelgruppen-Frequenz
+    const mgCount = {};
+    allExIds.forEach(exId => {
+      const libEx = Object.entries(LIBRARY).find(([mg, exs]) => exs.find(e => e.id === exId));
+      if (libEx) {
+        const mg = libEx[0];
+        mgCount[mg] = (mgCount[mg] || 0) + (history[exId]?.length || 0);
+      }
+    });
+    const mgTotal = Object.values(mgCount).reduce((a, b) => a + b, 0) || 1;
+    const mgSorted = Object.entries(mgCount).sort((a, b) => b[1] - a[1]);
+
+    // Trainingsfrequenz pro Monat (letzte 6 Monate)
+    const now = new Date();
+    const months = Array.from({length: 6}, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+      return { key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: d.toLocaleDateString('de-AT', {month:'short'}) };
+    });
+    const sessionsPerMonth = months.map(m => ({
+      ...m,
+      count: trainingDays.filter(d => d.startsWith(m.key)).length
+    }));
+    const maxPerMonth = Math.max(...sessionsPerMonth.map(m => m.count), 1);
+
+    // Durchschnittliche Einheitsdauer
+    const durSessions = allSessions.filter(s => s.durationSec > 0);
+    const avgDuration = durSessions.length > 0
+      ? Math.round(durSessions.reduce((s, x) => s + x.durationSec, 0) / durSessions.length)
+      : 0;
+
+    // ── Übungs-Detail ──
+    const exHistory = selectedEx ? (history[selectedEx] || []) : [];
+    const ex1RMs = exHistory.map(s => ({
+      date: s.date.slice(0,10),
+      rm: Math.max(...s.sets.map(st => calc1RM(parseFloat(st.weight)||0, parseInt(st.reps)||0)))
+    }));
+    const exVolumes = exHistory.map(s => ({
+      date: s.date.slice(0,10),
+      vol: s.sets.reduce((sum, st) => sum + (parseFloat(st.weight)||0)*(parseInt(st.reps)||0), 0)
+    }));
+
+    // Mini SVG Line Chart
+    const LineChart = ({ data, valueKey, color, width=300, height=80 }) => {
+      if (data.length < 2) return <div style={{fontSize:12,color:C.muted,textAlign:'center',padding:16}}>Noch zu wenig Daten</div>;
+      const vals = data.map(d => d[valueKey]);
+      const min = Math.min(...vals), max = Math.max(...vals);
+      const range = max - min || 1;
+      const pts = data.map((d, i) => {
+        const x = 10 + (i / (data.length-1)) * (width-20);
+        const y = (height-10) - ((d[valueKey]-min)/range)*(height-20);
+        return [x, y];
+      });
+      const pathD = pts.map((p,i) => (i===0?`M`:` L`) + `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join('');
+      return (
+        <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{overflow:'visible'}}>
+          <defs>
+            <linearGradient id={`grad-${valueKey}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.3"/>
+              <stop offset="100%" stopColor={color} stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d={pathD + ` L${pts[pts.length-1][0]},${height} L${pts[0][0]},${height} Z`}
+            fill={`url(#grad-${valueKey})`} />
+          <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+          {pts.map((p,i) => (
+            <circle key={i} cx={p[0]} cy={p[1]} r="3" fill={color} />
+          ))}
+          <text x={pts[pts.length-1][0]} y={pts[pts.length-1][1]-8} textAnchor="middle" fontSize="10" fill={color} fontWeight="700">
+            {Math.round(vals[vals.length-1])}{valueKey==='rm'?' kg':' kg·Wdh'}
+          </text>
+          <text x="10" y={height-2} fontSize="9" fill={C.muted}>{data[0].date.slice(5)}</text>
+          <text x={width-10} y={height-2} fontSize="9" fill={C.muted} textAnchor="end">{data[data.length-1].date.slice(5)}</text>
+        </svg>
+      );
+    };
+
+    const tabStyle = (t) => ({
+      flex: 1, padding: '10px 4px', border: 'none', borderRadius: 10, cursor: 'pointer',
+      fontWeight: 700, fontSize: 12,
+      background: statsTab === t ? C.accent : C.border,
+      color: statsTab === t ? '#fff' : C.textSub,
+    });
+
+    return (
+      <div style={{ padding: "16px", maxWidth: 480, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <button onClick={() => setView("home")} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:20 }}>←</button>
+          <h2 style={{ margin:0, fontSize:20, fontWeight:800, color:C.text }}>📊 Statistik</h2>
+        </div>
+
+        {/* Tab Bar */}
+        <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+          <button style={tabStyle("dashboard")} onClick={() => setStatsTab("dashboard")}>🏆 Dashboard</button>
+          <button style={tabStyle("sessions")} onClick={() => setStatsTab("sessions")}>📅 Sessions</button>
+          <button style={tabStyle("exercises")} onClick={() => setStatsTab("exercises")}>💪 Übungen</button>
+        </div>
+
+        {/* ── DASHBOARD TAB ── */}
+        {statsTab === "dashboard" && (
+          <div style={{display:"flex", flexDirection:"column", gap:12}}>
+            {/* KPI Row */}
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
+              <div style={{...cardS(), textAlign:"center"}}>
+                <div style={{fontSize:32, fontWeight:900, color:C.accent}}>{trainingDays.length}</div>
+                <div style={{fontSize:11, color:C.muted, textTransform:"uppercase", letterSpacing:0.5}}>Einheiten gesamt</div>
+              </div>
+              <div style={{...cardS(), textAlign:"center"}}>
+                <div style={{fontSize:32, fontWeight:900, color:C.gold}}>{calcStreak()}</div>
+                <div style={{fontSize:11, color:C.muted, textTransform:"uppercase", letterSpacing:0.5}}>Wochen-Streak</div>
+              </div>
+              <div style={{...cardS(), textAlign:"center"}}>
+                <div style={{fontSize:24, fontWeight:900, color:C.green}}>
+                  {totalVolume >= 1000 ? `${(totalVolume/1000).toFixed(1)}t` : `${Math.round(totalVolume)}kg`}
+                </div>
+                <div style={{fontSize:11, color:C.muted, textTransform:"uppercase", letterSpacing:0.5}}>Gesamtvolumen</div>
+              </div>
+              <div style={{...cardS(), textAlign:"center"}}>
+                <div style={{fontSize:24, fontWeight:900, color:C.text}}>{fmtDuration(avgDuration)}</div>
+                <div style={{fontSize:11, color:C.muted, textTransform:"uppercase", letterSpacing:0.5}}>Ø Einheitsdauer</div>
+              </div>
+            </div>
+
+            {/* Muskelgruppen Torte / Balken */}
+            <div style={cardS()}>
+              <div style={{fontWeight:700, color:C.text, marginBottom:12}}>Meisttrainierte Muskelgruppen</div>
+              {mgSorted.length === 0
+                ? <div style={{fontSize:12,color:C.muted}}>Noch keine Trainingsdaten</div>
+                : mgSorted.map(([mg, count]) => {
+                  const pct = count / mgTotal;
+                  const colors = {
+                    "Brust":C.accent,"Rücken":C.green,"Schulter":C.gold,
+                    "Bizeps / Trizeps":"#A78BFA","Beine":"#38BDF8",
+                    "Core / Rumpf":"#FB923C","Olympisch / Athletik":"#F472B6","Kettlebell":"#34D399"
+                  };
+                  const col = colors[mg] || C.muted;
+                  return (
+                    <div key={mg} style={{marginBottom:8}}>
+                      <div style={{display:"flex", justifyContent:"space-between", fontSize:12, marginBottom:3}}>
+                        <span style={{color:C.text, fontWeight:600}}>{mg}</span>
+                        <span style={{color:C.muted}}>{count}× · {Math.round(pct*100)}%</span>
+                      </div>
+                      <div style={{height:6, borderRadius:3, background:C.border}}>
+                        <div style={{height:6, borderRadius:3, background:col, width:`${pct*100}%`, transition:"width 0.5s"}} />
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          </div>
+        )}
+
+        {/* ── SESSIONS TAB ── */}
+        {statsTab === "sessions" && (
+          <div style={{display:"flex", flexDirection:"column", gap:12}}>
+            <div style={cardS()}>
+              <div style={{fontWeight:700, color:C.text, marginBottom:16}}>Einheiten pro Monat</div>
+              <div style={{display:"flex", alignItems:"flex-end", gap:6, height:80}}>
+                {sessionsPerMonth.map(m => (
+                  <div key={m.key} style={{flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4}}>
+                    <div style={{fontSize:10, color:C.accent, fontWeight:700}}>{m.count||''}</div>
+                    <div style={{
+                      width:"100%", borderRadius:"4px 4px 0 0",
+                      background: m.count > 0 ? C.accent : C.border,
+                      height: m.count > 0 ? `${(m.count/maxPerMonth)*60}px` : '4px',
+                      minHeight: 4, transition:"height 0.4s"
+                    }} />
+                    <div style={{fontSize:10, color:C.muted}}>{m.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={cardS()}>
+              <div style={{fontWeight:700, color:C.text, marginBottom:12}}>Letzte Einheiten</div>
+              {trainingDays.length === 0
+                ? <div style={{fontSize:12, color:C.muted}}>Noch keine Einheiten</div>
+                : [...trainingDays].reverse().slice(0,10).map(day => {
+                  const daySessions = allSessions.filter(s => s.date.slice(0,10) === day);
+                  const dayVol = daySessions.reduce((sum, s) =>
+                    sum + s.sets.reduce((ss, st) => ss + (parseFloat(st.weight)||0)*(parseInt(st.reps)||0), 0), 0);
+                  const dur = daySessions.find(s => s.durationSec)?.durationSec;
+                  const exNames = [...new Set(daySessions.map(s => {
+                    const found = Object.values(LIBRARY).flat().find(e => e.id === s.exId);
+                    return found?.name || s.exId;
+                  }))].slice(0,3);
+                  return (
+                    <div key={day} style={{padding:"8px 0", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:13, color:C.text, fontWeight:600}}>{new Date(day).toLocaleDateString('de-AT', {weekday:'short', day:'numeric', month:'short'})}</div>
+                        <div style={{fontSize:11, color:C.muted}}>{exNames.join(' · ')}{exNames.length < daySessions.length ? ' …' : ''}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        {dur && <div style={{fontSize:12, color:C.green}}>⏱ {fmtDuration(dur)}</div>}
+                        <div style={{fontSize:11, color:C.muted}}>{Math.round(dayVol)} kg·Wdh</div>
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          </div>
+        )}
+
+        {/* ── ÜBUNGEN TAB ── */}
+        {statsTab === "exercises" && (
+          <div style={{display:"flex", flexDirection:"column", gap:12}}>
+            {!selectedEx ? (
+              <div style={cardS()}>
+                <div style={{fontWeight:700, color:C.text, marginBottom:12}}>Übung wählen</div>
+                {allExIds.length === 0
+                  ? <div style={{fontSize:12,color:C.muted}}>Noch keine Trainingsdaten</div>
+                  : allExIds.map(exId => {
+                    const found = Object.values(LIBRARY).flat().find(e => e.id === exId);
+                    const name = found?.name || exId;
+                    const sessions = history[exId] || [];
+                    const best1RM = Math.max(...sessions.flatMap(s => s.sets.map(st => calc1RM(parseFloat(st.weight)||0, parseInt(st.reps)||0))));
+                    const lastDate = sessions[sessions.length-1]?.date?.slice(0,10);
+                    return (
+                      <div key={exId} onClick={() => setSelectedEx(exId)}
+                        style={{padding:"10px 0", borderBottom:`1px solid ${C.border}`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+                        <div>
+                          <div style={{fontSize:13, color:C.text, fontWeight:600}}>{name}</div>
+                          <div style={{fontSize:11, color:C.muted}}>{sessions.length}× trainiert · zuletzt {lastDate}</div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontSize:13, color:C.green, fontWeight:700}}>{best1RM} kg</div>
+                          <div style={{fontSize:10, color:C.muted}}>Best 1RM</div>
+                        </div>
+                      </div>
+                    );
+                  })
+                }
+              </div>
+            ) : (
+              <div style={{display:"flex", flexDirection:"column", gap:12}}>
+                <div style={{display:"flex", alignItems:"center", gap:10}}>
+                  <button onClick={() => setSelectedEx(null)} style={{background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:18}}>←</button>
+                  <div style={{fontWeight:700, color:C.text, fontSize:16}}>
+                    {Object.values(LIBRARY).flat().find(e => e.id === selectedEx)?.name || selectedEx}
+                  </div>
+                </div>
+
+                {/* KPIs */}
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8}}>
+                  {[
+                    {label:"Sessions", val: exHistory.length},
+                    {label:"Best 1RM", val: `${Math.max(...ex1RMs.map(x=>x.rm)||[0])} kg`, color:C.green},
+                    {label:"Ø Volumen", val: `${Math.round(exVolumes.reduce((s,x)=>s+x.vol,0)/(exVolumes.length||1))} kg`, color:C.gold},
+                  ].map(kpi => (
+                    <div key={kpi.label} style={{...cardS(), padding:"10px", textAlign:"center"}}>
+                      <div style={{fontSize:16, fontWeight:900, color:kpi.color||C.text}}>{kpi.val}</div>
+                      <div style={{fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:0.3}}>{kpi.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 1RM Chart */}
+                <div style={cardS()}>
+                  <div style={{fontWeight:700, color:C.text, marginBottom:12}}>1RM Entwicklung</div>
+                  <LineChart data={ex1RMs} valueKey="rm" color={C.green} />
+                </div>
+
+                {/* Volumen Chart */}
+                <div style={cardS()}>
+                  <div style={{fontWeight:700, color:C.text, marginBottom:12}}>Volumen pro Session</div>
+                  <LineChart data={exVolumes} valueKey="vol" color={C.gold} />
+                </div>
+
+                {/* Session History */}
+                <div style={cardS()}>
+                  <div style={{fontWeight:700, color:C.text, marginBottom:10}}>Verlauf</div>
+                  {[...exHistory].reverse().map((s, i) => {
+                    const rm = Math.max(...s.sets.map(st => calc1RM(parseFloat(st.weight)||0, parseInt(st.reps)||0)));
+                    const vol = s.sets.reduce((sum, st) => sum + (parseFloat(st.weight)||0)*(parseInt(st.reps)||0), 0);
+                    return (
+                      <div key={i} style={{padding:"8px 0", borderBottom:`1px solid ${C.border}`}}>
+                        <div style={{display:"flex", justifyContent:"space-between", marginBottom:3}}>
+                          <span style={{fontSize:12, color:C.textSub}}>{new Date(s.date).toLocaleDateString('de-AT', {day:'numeric', month:'short', year:'2-digit'})}</span>
+                          <span style={{fontSize:12, color:C.green, fontWeight:700}}>1RM: {rm} kg</span>
+                        </div>
+                        <div style={{fontSize:11, color:C.muted}}>
+                          {s.sets.map((st, j) => `S${j+1}: ${st.weight}kg×${st.reps}`).join(' · ')}
+                          <span style={{marginLeft:8, color:C.gold}}>Vol: {Math.round(vol)} kg</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Inter', system-ui, -apple-system, sans-serif" }}>
       {view==="home" && renderHome()}
@@ -962,6 +1304,7 @@ function KraftApp() {
       {view==="edit" && renderEdit()}
       {view==="lib-pick" && renderLibPick()}
       {view==="library" && renderLibrary()}
+      {view==="stats" && renderStats()}
     </div>
   );
 }
