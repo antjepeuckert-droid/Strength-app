@@ -14,6 +14,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; background: #0F1117; color: #E8EAF0; font-family: -apple-system, 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
     #root { min-height: 100vh; padding-bottom: env(safe-area-inset-bottom); }
+    .page-wrap { padding-top: max(20px, env(safe-area-inset-top)); }
     input, select, button { font-family: inherit; -webkit-appearance: none; }
     input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
     ::-webkit-scrollbar { display: none; }
@@ -522,7 +523,7 @@ function KraftApp() {
 
   // ── HOME ──────────────────────────────────────────────────────────────────────
   const renderHome = () => (
-    <div style={{ padding: "20px 16px", maxWidth: 480, margin: "0 auto" }}>
+    <div className="page-wrap" style={{ padding: "0 16px 20px", maxWidth: 480, margin: "0 auto" }}>
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontSize: 11, letterSpacing: 3, color: C.accent, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Olympiazentrum Vorarlberg</div>
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: C.text, lineHeight: 1.2 }}>Krafttraining</h1>
@@ -644,7 +645,7 @@ function KraftApp() {
     });
 
     return (
-      <div style={{ padding: "16px", maxWidth: 480, margin: "0 auto" }}>
+      <div className="page-wrap" style={{ padding: "0 16px 16px", maxWidth: 480, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
           <button onClick={() => { if (confirm("Session abbrechen?")) { setWorkoutStartTime(null); setView("home"); setActiveSession(null); } }}
             style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20 }}>←</button>
@@ -766,7 +767,7 @@ function KraftApp() {
     };
 
     return (
-      <div style={{ padding: "16px", maxWidth: 480, margin: "0 auto" }}>
+      <div className="page-wrap" style={{ padding: "0 16px 16px", maxWidth: 480, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
           <button onClick={() => setView("home")} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20 }}>←</button>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>{isNew ? "Neue Session" : "Session bearbeiten"}</h2>
